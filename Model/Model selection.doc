@@ -1,0 +1,21 @@
+This document will discuss few possible methods that might be use to train the prediction model.
+1. Rule-Based Baseline (use historical average)
+    The simplest one which might be highly considered when the onboarding needs to delivery the demo next week
+    This is a non-machine learning method, that only require to allocate data into different catagory based on the historical data
+    Cons is flexible 
+
+2. KNN classifier
+    Predict level by looking at similar past examples 
+    Perhaps set k in the range 10 to 15 (initial idea)
+
+
+3. Decision tree classifier
+    A more advanced allocating method than baseline
+    Might be easy to overfitting, since when we processing data , we mentioned we will not delate the special even data since it too many works
+    for onboarding, and will apply L2 or L1 later.
+
+
+4. Random Forest Regressor
+    coming soon...
+
+As a result, this project will more likely to use the first when time is hash, otherwise KNN will be choosen.
