@@ -75,3 +75,54 @@ def get_traffic():
             enriched_data.append(data_dict)
             
         return enriched_data
+
+@app.get("/api/forecast")
+def get_forecast(target_time: str):
+    with engine.connect() as conn:
+        # We pass the user's future timestamp into PostgreSQL to extract the target Day and Hour
+        query = text("""
+            SELECT 
+                s.street_name, 
+                s.latitude, 
+                s.longitude, 
+                t.sensor_id,
+                ROUND(AVG(t.pedestrian_count)) AS predicted_volume
+            FROM 
+                traffic_reading t
+            JOIN 
+                location_sensor s ON t.sensor_id = s.sensor_id
+            WHERE 
+                EXTRACT(DOW FROM t.timestamp) = EXTRACT(DOW FROM CAST(:target_time AS TIMESTAMP))
+                AND EXTRACT(HOUR FROM t.timestamp) = EXTRACT(HOUR FROM CAST(:target_time AS TIMESTAMP))
+            GROUP BY 
+                t.sensor_id, s.street_name, s.latitude, s.longitude
+        """)
+        
+        # Execute the query and bind the target_time parameter safely
+        results = conn.execute(query, {"target_time": target_time}).mappings().all()
+        
+        enriched_forecast = []
+        
+        # Apply the exact same threshold logic to the predicted volume
+        for row in results:
+            data_dict = dict(row)
+            count = data_dict["predicted_volume"]
+            
+            # If a sensor has no historical data for that hour, default to 0
+            if count is None:
+                count = 0
+                data_dict["predicted_volume"] = 0
+                
+            if count < 100:
+                data_dict["predicted_level"] = "Low"
+                data_dict["marker_color"] = "Green"
+            elif count <= 500:
+                data_dict["predicted_level"] = "Medium"
+                data_dict["marker_color"] = "Yellow"
+            else:
+                data_dict["predicted_level"] = "High"
+                data_dict["marker_color"] = "Red"
+                
+            enriched_forecast.append(data_dict)
+            
+        return enriched_forecast
