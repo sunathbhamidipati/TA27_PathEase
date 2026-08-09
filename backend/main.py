@@ -7,6 +7,7 @@ from sqlalchemy import create_engine, text
 from routers.high_load import router as high_load_router
 from routers.routes import router as routes_router
 from routers.route_score import router as route_score_router
+from routers.crowd_forecast import router as crowd_forecast_router
 
 # Load your secret .env file
 load_dotenv()
@@ -31,6 +32,7 @@ app = FastAPI(
 app.include_router(high_load_router)
 app.include_router(routes_router)
 app.include_router(route_score_router)
+app.include_router(crowd_forecast_router)
 
 @app.get("/")
 def read_root():
