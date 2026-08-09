@@ -1,7 +1,11 @@
 import os
+
 from fastapi import FastAPI
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
+
+from routers.high_load import router as high_load_router
+from routers.routes import router as routes_router
 
 # Load your secret .env file
 load_dotenv()
@@ -17,7 +21,6 @@ engine = create_engine(
     connect_args={"sslmode": "require"},
     pool_pre_ping=True
 )
-from routers.high_load import router as high_load_router
 
 app = FastAPI(
     title="PathEase Backend API",
@@ -25,7 +28,7 @@ app = FastAPI(
 )
 
 app.include_router(high_load_router)
-
+app.include_router(routes_router)
 
 @app.get("/")
 def read_root():
