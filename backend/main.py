@@ -43,14 +43,35 @@ def get_refuges():
 @app.get("/api/traffic")
 def get_traffic():
     with engine.connect() as conn:
-        # Join the traffic data with the sensor locations to get the street names.
-        # We use LIMIT 100 so we don't crash the browser trying to load 90,000 minute-by-minute rows!
+        # Fetch the raw data
         query = text("""
-            SELECT s.street_name, s.latitude, s.longitude, t.pedestrian_count, t.sensory_indicator, t.timestamp 
+            SELECT s.street_name, s.latitude, s.longitude, t.pedestrian_count, t.timestamp 
             FROM traffic_reading t
             JOIN location_sensor s ON t.sensor_id = s.sensor_id
             ORDER BY t.timestamp DESC
             LIMIT 100
         """)
-        result = conn.execute(query).mappings().all()
-        return result
+        results = conn.execute(query).mappings().all()
+        
+        enriched_data = []
+        
+        # AC 1.1.2 Logic: Map raw counts to Low, Medium, High & Colors
+        for row in results:
+            # Convert SQLAlchemy row mapping to a standard Python dictionary so we can edit it
+            data_dict = dict(row)
+            count = data_dict["pedestrian_count"]
+            
+            # Apply the threshold logic
+            if count < 100:
+                data_dict["traffic_level"] = "Low"
+                data_dict["marker_color"] = "Green"
+            elif count <= 500:
+                data_dict["traffic_level"] = "Medium"
+                data_dict["marker_color"] = "Yellow"
+            else:
+                data_dict["traffic_level"] = "High"
+                data_dict["marker_color"] = "Red"
+                
+            enriched_data.append(data_dict)
+            
+        return enriched_data
