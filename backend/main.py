@@ -1,8 +1,12 @@
 import os
+import pandas as pd
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
+
+# Import the ML functions from your teammate's script
+from ml_predictor import get_model, count_to_level, FEATURE_COLUMNS
 
 # 1. Connect to the Database
 load_dotenv()
@@ -85,51 +89,56 @@ def get_traffic():
     
 @app.get("/api/forecast")
 def get_forecast(target_time: str):
+    # 1. Parse the requested time
+    target_datetime = pd.to_datetime(target_time)
+    
+    # 2. Get all static sensor locations from your database
     with engine.connect() as conn:
-        # We pass the user's future timestamp into PostgreSQL to extract the target Day and Hour
-        query = text("""
-            SELECT 
-                s.street_name, 
-                s.latitude, 
-                s.longitude, 
-                t.sensor_id,
-                ROUND(AVG(t.pedestrian_count)) AS predicted_volume
-            FROM 
-                traffic_reading t
-            JOIN 
-                location_sensor s ON t.sensor_id = s.sensor_id
-            WHERE 
-                EXTRACT(DOW FROM t.timestamp) = EXTRACT(DOW FROM CAST(:target_time AS TIMESTAMP))
-                AND EXTRACT(HOUR FROM t.timestamp) = EXTRACT(HOUR FROM CAST(:target_time AS TIMESTAMP))
-            GROUP BY 
-                t.sensor_id, s.street_name, s.latitude, s.longitude
-        """)
+        sensors = conn.execute(text("""
+            SELECT sensor_id, latitude, longitude, street_name 
+            FROM location_sensor
+        """)).mappings().all()
         
-        # Execute the query and bind the target_time parameter safely
-        results = conn.execute(query, {"target_time": target_time}).mappings().all()
+    # 3. Build a batch Pandas DataFrame for the ML model
+    input_data = []
+    for s in sensors:
+        input_data.append({
+            "Location_ID": s["sensor_id"],
+            "HourDay": target_datetime.hour,
+            "day_of_week": target_datetime.dayofweek,
+            "is_weekend": 1 if target_datetime.dayofweek >= 5 else 0,
+            "month": target_datetime.month,
+        })
         
-        enriched_forecast = []
+    df_input = pd.DataFrame(input_data)
+    
+    # 4. Load the pre-trained model and predict ALL locations instantly
+    model = get_model()
+    predicted_counts = model.predict(df_input[FEATURE_COLUMNS])
+    
+    # 5. Package the results for the frontend map
+    results = []
+    for i, s in enumerate(sensors):
+        count = predicted_counts[i]
+        level = count_to_level(count)
         
-        # Apply the exact same threshold logic to the predicted volume
-        for row in results:
-            data_dict = dict(row)
-            count = data_dict["predicted_volume"]
+        # Attach the map marker colors based on the teammate's thresholds
+        if level == "Low":
+            color = "Green"
+        elif level == "Medium":
+            color = "Yellow"
+        else:
+            color = "Red"
             
-            # If a sensor has no historical data for that hour, default to 0
-            if count is None:
-                count = 0
-                data_dict["predicted_volume"] = 0
-                
-            if count < 100:
-                data_dict["predicted_level"] = "Low"
-                data_dict["marker_color"] = "Green"
-            elif count <= 500:
-                data_dict["predicted_level"] = "Medium"
-                data_dict["marker_color"] = "Yellow"
-            else:
-                data_dict["predicted_level"] = "High"
-                data_dict["marker_color"] = "Red"
-                
-            enriched_forecast.append(data_dict)
-            
-        return enriched_forecast
+        results.append({
+            "sensor_id": s["sensor_id"],
+            "street_name": s["street_name"],
+            "latitude": s["latitude"],
+            "longitude": s["longitude"],
+            "target_datetime": target_time,
+            "predicted_count": round(float(count), 1),
+            "predicted_level": level,
+            "marker_color": color
+        })
+        
+    return results
