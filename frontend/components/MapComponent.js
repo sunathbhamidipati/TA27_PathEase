@@ -1,29 +1,39 @@
 'use client';
-import { MapContainer, TileLayer, Polyline, CircleMarker } from 'react-leaflet';
+
+import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from 'react-leaflet';
+import { useEffect } from 'react';
 import 'leaflet/dist/leaflet.css';
 
-export default function MapComponent() {
-  // Centered on Melbourne CBD
-  const melbourneCenter = [-37.8136, 144.9631];
+// Helper component to smoothly re-center map when search coordinates change
+function RecenterMap({ center }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center) {
+      map.flyTo(center, 15, { duration: 1.5 });
+    }
+  }, [center, map]);
+  return null;
+}
 
-  // Hardcoded Primary Route (Flinders St to State Library)
-  const primaryRoute = [
-    [-37.8183, 144.9671], 
-    [-37.8145, 144.9660], 
-    [-37.8098, 144.9652]
-  ];
+export default function MapComponent({ startCoords, destCoords, routeGeometry }) {
+  const defaultStart = startCoords || [-37.8183, 144.9671]; 
+  const defaultDest = destCoords || [-37.8098, 144.9652];   
+  
+  // If we have a calculated street route, use it. Otherwise, fallback to a straight line.
+  const pathPositions = routeGeometry && routeGeometry.length > 0 ? routeGeometry : [defaultStart, defaultDest];
 
   return (
-    <MapContainer center={melbourneCenter} zoom={14} style={{ height: '100%', width: '100%' }}>
+    <MapContainer center={defaultStart} zoom={15} style={{ height: '100%', width: '100%' }}>
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution='&copy; OpenStreetMap contributors'
       />
-      {/* This draws your route in Red to simulate a High Sensory Load */}
-      {/* Updated Route Line to match the purple UI theme */}
-{/* The Route Line */}
+      
+      <RecenterMap center={defaultStart} />
+
+      {/* Dynamic Route Line */}
       <Polyline 
-        positions={primaryRoute} 
+        positions={pathPositions} 
         color="#6D28D9" 
         weight={8} 
         opacity={0.8} 
@@ -33,18 +43,17 @@ export default function MapComponent() {
 
       {/* Starting Location Dot */}
       <CircleMarker 
-        center={primaryRoute[0]} 
-        radius={7} 
+        center={defaultStart} 
+        radius={8} 
         pathOptions={{ color: '#6D28D9', fillColor: 'white', fillOpacity: 1, weight: 4 }} 
       />
 
-      {/* Destination Dot */}
+      {/* Destination Location Dot */}
       <CircleMarker 
-        center={primaryRoute[primaryRoute.length - 1]} 
-        radius={7} 
+        center={defaultDest} 
+        radius={8} 
         pathOptions={{ color: '#6D28D9', fillColor: 'white', fillOpacity: 1, weight: 4 }} 
       />
-
     </MapContainer>
   );
 }

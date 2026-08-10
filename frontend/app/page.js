@@ -1,8 +1,22 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Map, MapPin, Target, ArrowRight, Users, UserCircle } from 'lucide-react';
 
 export default function Home() {
+  const router = useRouter();
+  const [startInput, setStartInput] = useState('');
+  const [destInput, setDestInput] = useState('');
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    // Redirect to the map page and pass the inputs as URL query parameters
+    if (startInput && destInput) {
+      router.push(`/map?start=${encodeURIComponent(startInput)}&dest=${encodeURIComponent(destInput)}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F4F4F6] font-sans flex flex-col">
       {/* HEADER */}
@@ -33,42 +47,44 @@ export default function Home() {
             Navigate with peace of mind.
           </h1>
           <p className="text-lg text-gray-600">
-            Discover routes tailored to your sensory preferences. Avoid crowds, minimize noise, and find calm paths to your destination.
+            Discover routes tailored to your sensory preferences. Avoid crowds, minimize noise, and find calm paths to your destination in the Melbourne CBD.
           </p>
         </div>
 
-        {/* SEARCH CARD */}
-        <div className="bg-white p-6 rounded-2xl shadow-md w-full max-w-xl mb-16">
+        {/* SEARCH CARD (Now a functional form) */}
+        <form onSubmit={handleSearch} className="bg-white p-6 rounded-2xl shadow-md w-full max-w-xl mb-16">
           <div className="space-y-4">
             
-            {/* Current Location Input */}
             <div className="relative">
               <Target className="absolute left-4 top-3.5 w-5 h-5 text-gray-500" />
               <input 
                 type="text" 
-                placeholder="Current Location" 
+                value={startInput}
+                onChange={(e) => setStartInput(e.target.value)}
+                placeholder="Current Location (e.g., Flinders Street Station)" 
+                required
                 className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-800 placeholder-gray-400"
               />
             </div>
 
-            {/* Destination Input */}
             <div className="relative">
               <MapPin className="absolute left-4 top-3.5 w-5 h-5 text-gray-500" />
               <input 
                 type="text" 
-                placeholder="Enter destination..." 
+                value={destInput}
+                onChange={(e) => setDestInput(e.target.value)}
+                placeholder="Enter destination... (e.g., State Library)" 
+                required
                 className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-800 placeholder-gray-400"
               />
             </div>
 
-            {/* Submit Button */}
-            <button className="w-full bg-purple-700 hover:bg-purple-800 text-white font-medium py-3 rounded-lg flex justify-center items-center space-x-2 transition-colors">
+            <button type="submit" className="w-full bg-purple-700 hover:bg-purple-800 text-white font-medium py-3 rounded-lg flex justify-center items-center space-x-2 transition-colors">
               <span>Find Route</span>
               <ArrowRight className="w-5 h-5" />
             </button>
           </div>
-        </div>
-
+        </form>
       </main>
 
       {/* COMFORT ZONES SECTION */}
@@ -80,7 +96,6 @@ export default function Home() {
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Crowd Levels Card */}
             <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow cursor-pointer bg-gray-50">
               <div className="bg-gray-200 w-12 h-12 rounded-lg flex items-center justify-center mb-4 text-gray-700">
                 <Users className="w-6 h-6" />
@@ -97,11 +112,6 @@ export default function Home() {
       {/* FOOTER */}
       <footer className="bg-white border-t border-gray-200 py-6 px-8 flex flex-col md:flex-row justify-between items-center text-sm text-gray-500">
         <p>PathEase. Accessible Navigation for Everyone.</p>
-        <div className="flex space-x-6 mt-4 md:mt-0">
-          <a href="#" className="hover:text-gray-900">Privacy Policy</a>
-          <a href="#" className="hover:text-gray-900">Terms of Service</a>
-          <a href="#" className="hover:text-gray-900">Accessibility Help</a>
-        </div>
       </footer>
     </div>
   );
