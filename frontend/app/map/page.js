@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 // Added TreePine for the refuge button icon
 import { MapPin, Target, Navigation2, Clock, Activity, Leaf, Users, Search, Loader2, TreePine } from 'lucide-react';
@@ -12,8 +12,8 @@ const SafeMap = dynamic(() => import('../../components/MapComponent'), {
   loading: () => <div className="flex-1 bg-gray-100 flex items-center justify-center font-semibold text-purple-700">Loading Map...</div>
 });
 
-export default function MapInterface() {
-    const [activeRouteType, setActiveRouteType] = useState('quietest');
+function MapContent() {
+  const [activeRouteType, setActiveRouteType] = useState('quietest');
   const [fastestRouteGeom, setFastestRouteGeom] = useState([]);
   const [quietestRouteGeom, setQuietestRouteGeom] = useState([]);
   const searchParams = useSearchParams();
@@ -484,5 +484,17 @@ export default function MapInterface() {
       </main>
       
     </div>
+  );
+}
+
+export default function MapInterface() {
+  return (
+    <Suspense fallback={
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#F4F4F6] text-purple-700 font-bold">
+        Loading Map Interface...
+      </div>
+    }>
+      <MapContent />
+    </Suspense>
   );
 }
