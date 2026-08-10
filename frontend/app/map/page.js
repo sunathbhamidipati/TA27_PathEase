@@ -156,23 +156,19 @@ export default function MapInterface() {
     }
   };
 
-  // 4. Fetch Predictive Forecast from Navia's backend
+  // 4. Fetch Predictive Forecast for the Destination (AC 2.2.1 & 2.2.3)
   const handleTimeSelect = async (offset) => {
     setSelectedTime(offset);
     
     if (offset === 0) {
-      // If "Now" is clicked, just re-run the live traffic fetch
-      await fetchSensoryData();
+      // "Now" just displays the live status of the route
       setForecastStatus('Live');
       return;
     }
 
     try {
-      // Calculate the future time based on the clicked offset (+20, +40, +60 mins)
       const futureDate = new Date();
       futureDate.setMinutes(futureDate.getMinutes() + offset);
-      
-      // Format it exactly how the Python backend expects it (YYYY-MM-DD HH:MM:00)
       const formattedTime = futureDate.toISOString().replace('T', ' ').substring(0, 16) + ':00';
 
       const backendUrl = `https://ta27-pathease-backend.onrender.com/api/forecast?target_time=${encodeURIComponent(formattedTime)}`;
@@ -181,32 +177,44 @@ export default function MapInterface() {
       const data = await response.json();
       
       if (data && data.length > 0) {
-        // Look through Navia's forecast data using her exact key: 'traffic_level'
-        const hasHigh = data.some(reading => 
-          String(reading.traffic_level).toLowerCase() === 'high'
-        );
-        const hasMedium = data.some(reading => 
-          String(reading.traffic_level).toLowerCase() === 'medium'
-        );
+        // Haversine formula to find the forecast sensor closest to the destination
+        const toRad = (value) => (value * Math.PI) / 180;
+        let closestSensor = null;
+        let minDistance = Infinity;
 
-        if (hasHigh) {
-          setForecastStatus('High');
-          setRouteColor('#B91C1C'); // Red
-        } else if (hasMedium) {
-          setForecastStatus('Medium');
-          setRouteColor('#CA8A04'); // Yellow
+        data.forEach(sensor => {
+          const R = 6371; // Earth radius in km
+          const dLat = toRad(sensor.latitude - destCoords[0]);
+          const dLon = toRad(sensor.longitude - destCoords[1]);
+          const lat1 = toRad(destCoords[0]);
+          const lat2 = toRad(sensor.latitude);
+
+          const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          const distance = R * c;
+
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestSensor = sensor;
+          }
+        });
+
+        // Update the UI with the specific predicted level for the destination area
+        if (closestSensor) {
+          // Navia's forecast backend uses 'predicted_level' based on the Python code
+          const destForecast = closestSensor.predicted_level || 'Low';
+          setForecastStatus(destForecast);
         } else {
           setForecastStatus('Low');
-          setRouteColor('#15803D'); // Green
         }
       } else {
-        // Fallback if the forecast data is empty
         setForecastStatus('Low');
-        setRouteColor('#15803D');
       }
       
     } catch (error) {
       console.error("Failed to fetch forecast from Python backend", error);
+      setForecastStatus('Low');
     }
   };
 
@@ -305,7 +313,7 @@ export default function MapInterface() {
         <div className="p-3 border-b border-gray-100 flex justify-between items-center">
           <Link href="/" className="flex items-center space-x-2 text-purple-700 font-bold text-lg cursor-pointer">
             <Leaf className="w-5 h-5" />
-            <span>Find Calm Routes</span>
+            <span>PathEase</span>
           </Link>
           <div className="text-xs font-semibold text-purple-700 border-b-2 border-purple-700 pb-1">Destinations</div>
         </div>
@@ -407,16 +415,17 @@ export default function MapInterface() {
           </div>
         </div>
 
-        {/* Crowd Forecast Panel */}
+        {/* Destination Crowd Forecast Panel */}
         <div className="p-4 border-t border-gray-200 bg-gray-50">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Crowd Forecast</h3>
+            {/* NEW: Updated label for clarity */}
+            <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Destination Forecast</h3>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
               forecastStatus === 'High' ? 'bg-red-100 text-red-700' :
               forecastStatus === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
               'bg-green-100 text-green-700'
             }`}>
-              {forecastStatus} Traffic
+              {forecastStatus === 'Live' ? 'Live Data' : `${forecastStatus} Traffic`}
             </span>
           </div>
           
@@ -450,13 +459,6 @@ export default function MapInterface() {
           </button>
         </div>
 
-        {/* Start Navigation */}
-        <div className="p-4 border-t border-gray-200 bg-white">
-          <button className="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-3 rounded-xl flex justify-center items-center space-x-2 transition-colors text-sm">
-            <span>Start Navigation</span>
-            <Navigation2 className="w-4 h-4" />
-          </button>
-        </div>
       </aside>
 
       {/* RIGHT MAIN AREA: Map */}
