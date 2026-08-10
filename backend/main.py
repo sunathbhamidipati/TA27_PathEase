@@ -52,29 +52,27 @@ def get_refuges():
 @app.get("/api/traffic")
 def get_traffic():
     with engine.connect() as conn:
-        # Fetch the raw data
+        # DISTINCT ON (t.sensor_id) grabs only the single most recent reading for EVERY sensor
         query = text("""
-            SELECT s.street_name, s.latitude, s.longitude, t.pedestrian_count, t.timestamp 
+            SELECT DISTINCT ON (t.sensor_id)
+                s.street_name, s.latitude, s.longitude, t.pedestrian_count, t.timestamp 
             FROM traffic_reading t
             JOIN location_sensor s ON t.sensor_id = s.sensor_id
-            ORDER BY t.timestamp DESC
-            LIMIT 100
+            ORDER BY t.sensor_id, t.timestamp DESC
         """)
         results = conn.execute(query).mappings().all()
         
         enriched_data = []
         
-        # AC 1.1.2 Logic: Map raw counts to Low, Medium, High & Colors
         for row in results:
-            # Convert SQLAlchemy row mapping to a standard Python dictionary so we can edit it
             data_dict = dict(row)
             count = data_dict["pedestrian_count"]
             
-            # Apply the threshold logic
-            if count < 100:
+            # LOWER THRESHOLDS: Adjusted for minute-by-minute traffic rather than hourly
+            if count < 15:
                 data_dict["traffic_level"] = "Low"
                 data_dict["marker_color"] = "Green"
-            elif count <= 500:
+            elif count <= 40:
                 data_dict["traffic_level"] = "Medium"
                 data_dict["marker_color"] = "Yellow"
             else:
@@ -84,7 +82,7 @@ def get_traffic():
             enriched_data.append(data_dict)
             
         return enriched_data
-
+    
 @app.get("/api/forecast")
 def get_forecast(target_time: str):
     with engine.connect() as conn:
